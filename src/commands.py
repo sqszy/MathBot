@@ -1,10 +1,8 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    ContextTypes,
-)
+from telegram.ext import ContextTypes
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def start(update: Update) -> None:
     keyboard = [
         [InlineKeyboardButton("Информация", callback_data="info")],
         [InlineKeyboardButton("Теоремы", callback_data="theorems")],
@@ -149,14 +147,5 @@ async def cube(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="[\nCube](https://telegra.ph/Kub-10-11)",
-        parse_mode="Markdown",
-    )
-
-
-async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="Привет, я студент 3 курса\nЕсли хочешь узнать как я это сделал и как устроен проект, напиши мне и я расскажу обо всём\nСсылка на мой аккаунт - "
-        + "[@jjkxxd](https://t.me/jjkxxd)",
         parse_mode="Markdown",
     )
