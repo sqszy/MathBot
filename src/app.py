@@ -1,7 +1,8 @@
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler
-from config.config import BOT_TOKEN
 from .commands import start
 from .handler import button_handler
+from .config.config import BOT_TOKEN
+
 
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 

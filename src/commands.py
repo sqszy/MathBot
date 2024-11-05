@@ -2,17 +2,21 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 
-async def start(update: Update) -> None:
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.callback_query:
+        message = update.callback_query.message
+    else:
+        message = update.message
     keyboard = [
-        [InlineKeyboardButton("Информация", callback_data="info")],
-        [InlineKeyboardButton("Теоремы", callback_data="theorems")],
-        [InlineKeyboardButton("Шпаргалки", callback_data="cheatsheets")],
-        [InlineKeyboardButton("Решить задачу", callback_data="solve")],
-    ]
+        [InlineKeyboardButton("Информация", callback_data="info"),
+         InlineKeyboardButton("Теоремы", callback_data="theorems")],
+        [InlineKeyboardButton("Шпаргалки", callback_data="cheatsheets"),
+         InlineKeyboardButton("Решить задачу", callback_data="solve")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
-        f"Привет, {update.effective_user.first_name}! Я бот калькулятор, созданный на языке Python. Это курсовая работа по предмету - Технология программирования.",
+        f"Привет, {update.effective_user.first_name}! Я бот калькулятор, созданный на языке \
+            Python. Это курсовая работа по предмету - Технология программирования.",
         reply_markup=reply_markup,
     )
 
@@ -26,7 +30,8 @@ async def pi(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def trigonometry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="[Основные тригонометрические тождества](https://telegra.ph/Osnovnye-trigonometricheskie-tozhdestva-10-11)",
+        text="[Основные тригонометрические тождества]\
+            (https://telegra.ph/Osnovnye-trigonometricheskie-tozhdestva-10-11)",
         parse_mode="Markdown",
     )
 
@@ -130,7 +135,7 @@ async def circle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="[\nCone](https://telegra.ph/Konus-10-11)",
+        text="[\nКонус](https://telegra.ph/Konus-10-11)",
         parse_mode="Markdown",
     )
 
@@ -138,7 +143,7 @@ async def cone(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def pyramid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="[\npyramid](https://telegra.ph/Piramida-10-11-17)",
+        text="[\nПирамида](https://telegra.ph/Piramida-10-11-17)",
         parse_mode="Markdown",
     )
 
@@ -146,6 +151,6 @@ async def pyramid(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cube(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="[\nCube](https://telegra.ph/Kub-10-11)",
+        text="[\nКуб](https://telegra.ph/Kub-10-11)",
         parse_mode="Markdown",
     )
