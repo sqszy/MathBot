@@ -1,7 +1,12 @@
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler
-from .commands import start
-from .handler import button_handler
-from .config.config import BOT_TOKEN
+from src.commands import start
+from src.handler import button_handler
+from src.config.config import BOT_TOKEN
+import sys
+import os
+
+# Добавляем путь к родительской директории для правильного импорта
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
 app = ApplicationBuilder().token(BOT_TOKEN).build()
