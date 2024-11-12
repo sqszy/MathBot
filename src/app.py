@@ -9,9 +9,7 @@ from src.handler import button_handler
 from src.config.config import BOT_TOKEN
 
 
-
 app = ApplicationBuilder().token(BOT_TOKEN).build()
-
 
 # Добавляем обработчики команд
 app.add_handler(CommandHandler("start", start))

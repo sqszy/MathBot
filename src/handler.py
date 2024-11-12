@@ -18,7 +18,6 @@ from src.commands import (
     cone,
     pyramid,
     cube,
-    start,
 )
 
 
@@ -29,13 +28,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if query.data == "info":
         keyboard = [[InlineKeyboardButton("Назад", callback_data="back")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-
         await query.edit_message_text(
             text="Привет, я студент 3 курса\nЕсли хочешь узнать как я это сделал и как устроен проект, напиши мне и я расскажу обо всём\nСсылка на мой аккаунт - [@jjkxxd](https://t.me/jjkxxd)",
             parse_mode="Markdown",
             reply_markup=reply_markup,
         )
-
     elif query.data == "theorems":
         keyboard = [
             [InlineKeyboardButton("Число Пи", callback_data="pi"),
@@ -64,15 +61,25 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
 
     elif query.data == "back":
-        # Возвращаем пользователя в главное меню
-        await start(update, context)
-
-    else:
+        keyboard = [
+            [InlineKeyboardButton("Информация", callback_data="info"),
+             InlineKeyboardButton("Теоремы", callback_data="theorems")],
+            [InlineKeyboardButton("Шпаргалки", callback_data="cheatsheets"),
+             InlineKeyboardButton("Решить задачу", callback_data="solve")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            text="Привет! Я бот-помощник по математике и другим предметам. Выберите одну из опций:",
+            reply_markup=reply_markup,
+        )
+    elif query.data in ["pi", "trigonometry", "derivative", "tablstep", "tablsquare",
+                        "square", "rectangle", "triangle", "rhomb", "trapezoid",
+                        "parallelepiped", "sphere", "parallelogram", "circle",
+                        "cone", "pyramid", "cube"]:
         await handle_theorems(query, context)
 
 
 async def handle_theorems(query, context: ContextTypes.DEFAULT_TYPE):
-    # Словарь для хранения текстов теорем
     theorems = {
         "pi": pi,
         "trigonometry": trigonometry,
@@ -94,5 +101,4 @@ async def handle_theorems(query, context: ContextTypes.DEFAULT_TYPE):
     }
 
     if query.data in theorems:
-        # Вызов соответствующей функции для теоремы
         await theorems[query.data](query, context)

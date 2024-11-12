@@ -3,11 +3,6 @@ from telegram.ext import ContextTypes
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.callback_query:
-        message = update.callback_query.message
-    else:
-        message = update.message
-
     keyboard = [
         [InlineKeyboardButton("Информация", callback_data="info"),
          InlineKeyboardButton("Теоремы", callback_data="theorems")],
@@ -15,13 +10,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
          InlineKeyboardButton("Решить задачу", callback_data="solve")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-
-    if message:
-        await message.reply_text(
-            f"Привет, {update.effective_user.first_name}! Я бот калькулятор, созданный на языке \
-                Python. Это курсовая работа по предмету - Технология программирования.",
-            reply_markup=reply_markup,
-        )
+    await update.message.reply_text(
+        f"Привет, {update.effective_user.first_name}! Я бот калькулятор, созданный на языке Python. Это курсовая работа по предмету - Технология программирования.",
+        reply_markup=reply_markup,
+    )
 
 
 async def pi(update: Update, context: ContextTypes.DEFAULT_TYPE):
