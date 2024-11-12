@@ -18,6 +18,10 @@ from src.commands import (
     cone,
     pyramid,
     cube,
+    cheatsheet_1,
+    cheatsheet_2,
+    cheatsheet_3,
+    cheatsheet_4,
 )
 
 
@@ -59,6 +63,26 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await query.edit_message_text(
             text="Выберите теорему:", reply_markup=reply_markup
         )
+    elif query.data == "cheatsheets":
+        keyboard = [
+            [InlineKeyboardButton("Вся школьная программа", callback_data="cheatsheet_1"),
+             InlineKeyboardButton("Дискретная математика", callback_data="cheatsheet_2")],
+            [InlineKeyboardButton("Линейная алгебра", callback_data="cheatsheet_3"),
+             InlineKeyboardButton("Математический анализ", callback_data="cheatsheet_4")],
+            [InlineKeyboardButton("Назад", callback_data="back")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            text="Выберите шпаргалку:", reply_markup=reply_markup
+        )
+    elif query.data == "cheatsheet_1":
+        await cheatsheet_1(update, context)
+    elif query.data == "cheatsheet_2":
+        await cheatsheet_2(update, context)
+    elif query.data == "cheatsheet_3":
+        await cheatsheet_3(update, context)
+    elif query.data == "cheatsheet_4":
+        await cheatsheet_4(update, context)
 
     elif query.data == "back":
         keyboard = [

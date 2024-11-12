@@ -1,3 +1,4 @@
+from os.path import join
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
@@ -149,3 +150,43 @@ async def cube(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text="[\nКуб](https://telegra.ph/Kub-10-11)",
         parse_mode="Markdown",
     )
+
+
+async def cheatsheet_1(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    file_path = "src/files/allsch.pdf"
+    with open(file_path, "rb") as file:
+        await context.bot.send_document(
+            chat_id=update.callback_query.message.chat.id,
+            document=file,
+            caption="Вся школьная программа в 1 файле:"
+        )
+
+
+async def cheatsheet_2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    file_path = "src/files/discret.pdf"
+    with open(file_path, "rb") as file:
+        await context.bot.send_document(
+            chat_id=update.callback_query.message.chat.id,
+            document=file,
+            caption="Дискретная математика в 1 файле:"
+        )
+
+
+async def cheatsheet_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    file_path = "src/files/linal.pdf"
+    with open(file_path, "rb") as file:
+        await context.bot.send_document(
+            chat_id=update.callback_query.message.chat.id,
+            document=file,
+            caption="Линейная алгебра в 1 файле:"
+        )
+
+
+async def cheatsheet_4(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    file_path = "src/files/mathan.pdf"
+    with open(file_path, "rb") as file:
+        await context.bot.send_document(
+            chat_id=update.callback_query.message.chat.id,
+            document=file,
+            caption="Математический анализ в 1 файле:"
+        )
