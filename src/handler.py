@@ -1,6 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from src.commands import (
+from commands import (
     pi,
     trigonometry,
     derivative,

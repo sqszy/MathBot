@@ -1,4 +1,3 @@
-from os.path import join
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
