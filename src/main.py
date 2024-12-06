@@ -1,9 +1,9 @@
 import logging
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 from config.config import BOT_TOKEN
 from commands import start
 from handlers.teorems import button_handler
-from handlers.ocr import image_handler
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters
+from handlers.ocr import ai_handler
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +22,10 @@ def main():
     # Добавляем обработчики команд
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
-    app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND, image_handler))
+    app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND, ai_handler))
 
     # Запуск бота
     app.run_polling()
-
     logger.info("Bot stoped")
 
 

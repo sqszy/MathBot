@@ -1,28 +1,14 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+import logging
+from telegram import Update, constants
 from telegram.ext import ContextTypes
-from commands import (
-    pi,
-    trigonometry,
-    derivative,
-    tablstep,
-    tablsquare,
-    square,
-    rectangle,
-    triangle,
-    rhomb,
-    trapezoid,
-    parallelepiped,
-    sphere,
-    parallelogram,
-    circle,
-    cone,
-    pyramid,
-    cube,
-    cheatsheet_1,
-    cheatsheet_2,
-    cheatsheet_3,
-    cheatsheet_4,
-)
+from telegram.helpers import escape_markdown
+from handlers.keyboards import get_back_button, get_cheatsheets_keyboard, get_feedback_keyboard, get_main_keyboard, get_theorems_keyboard
+from commands import handle_model_response, handle_theorems, send_cheatsheet
+from core.ocr.service import AIProcessor
+from config.config import TOGETHER_API_KEY
+
+logger = logging.getLogger(__name__)
+ai_processor = AIProcessor(api_key=TOGETHER_API_KEY)
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -30,99 +16,94 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await query.answer()
 
     if query.data == "info":
-        keyboard = [[InlineKeyboardButton("Назад", callback_data="back")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(
-            text="Привет, я студент 3 курса\nЕсли хочешь узнать как я это сделал и как устроен проект, напиши мне и я расскажу обо всём\nСсылка на мой аккаунт - [@jjkxxd](https://t.me/jjkxxd)",
+            text="Привет! Мы студенты 3 курса. Мы создали бота-помощника по математике на языке Python. Это курсовая работа по предмету - Технология программирования.  Если хочешь узнать как реализован бот, или есть какие-то технические неполадки, то напиши нам: [@jjkxxd](https://t.me/jjkxxd), [@mark_danko](https://t.me/mark_danko).",
             parse_mode="Markdown",
-            reply_markup=reply_markup,
+            reply_markup=get_back_button(callback_data="back")
         )
     elif query.data == "theorems":
-        keyboard = [
-            [InlineKeyboardButton("Число Пи", callback_data="pi"),
-             InlineKeyboardButton("Тригонометрия", callback_data="trigonometry")],
-            [InlineKeyboardButton("Производные", callback_data="derivative"),
-             InlineKeyboardButton("Таблица степеней", callback_data="tablstep")],
-            [InlineKeyboardButton("Таблица квадратов", callback_data="tablsquare"),
-             InlineKeyboardButton("Квадрат", callback_data="square")],
-            [InlineKeyboardButton("Прямоугольник", callback_data="rectangle"),
-             InlineKeyboardButton("Треугольник", callback_data="triangle")],
-            [InlineKeyboardButton("Ромб", callback_data="rhomb"),
-             InlineKeyboardButton("Трапеция", callback_data="trapezoid")],
-            [InlineKeyboardButton("Параллелепипед", callback_data="parallelepiped"),
-             InlineKeyboardButton("Сфера", callback_data="sphere")],
-            [InlineKeyboardButton("Параллелограмм", callback_data="parallelogram"),
-             InlineKeyboardButton("Окружность", callback_data="circle")],
-            [InlineKeyboardButton("Конус", callback_data="cone"),
-             InlineKeyboardButton("Пирамида", callback_data="pyramid")],
-            [InlineKeyboardButton("Куб", callback_data="cube")],
-            [InlineKeyboardButton("Назад", callback_data="back")]]
-
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
         await query.edit_message_text(
-            text="Выберите теорему:", reply_markup=reply_markup
+            text="Выберите одну из фигур для изучения информации:", reply_markup=get_theorems_keyboard()
         )
     elif query.data == "cheatsheets":
-        keyboard = [
-            [InlineKeyboardButton("Вся школьная программа", callback_data="cheatsheet_1"),
-             InlineKeyboardButton("Дискретная математика", callback_data="cheatsheet_2")],
-            [InlineKeyboardButton("Линейная алгебра", callback_data="cheatsheet_3"),
-             InlineKeyboardButton("Математический анализ", callback_data="cheatsheet_4")],
-            [InlineKeyboardButton("Назад", callback_data="back")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(
-            text="Выберите шпаргалку:", reply_markup=reply_markup
+            text="Выберите шпаргалку:", reply_markup=get_cheatsheets_keyboard()
         )
-    elif query.data == "cheatsheet_1":
-        await cheatsheet_1(update, context)
-    elif query.data == "cheatsheet_2":
-        await cheatsheet_2(update, context)
-    elif query.data == "cheatsheet_3":
-        await cheatsheet_3(update, context)
-    elif query.data == "cheatsheet_4":
-        await cheatsheet_4(update, context)
-
+    elif query.data.startswith("cheatsheet_"):
+        file_map = {
+            "cheatsheet_1": ("src/files/allsch.pdf", "Вся школьная программа в 1 файле:"),
+            "cheatsheet_2": ("src/files/discret.pdf", "Дискретная математика в 1 файле:"),
+            "cheatsheet_3": ("src/files/linal.pdf", "Линейная алгебра в 1 файле:"),
+            "cheatsheet_4": ("src/files/mathan.pdf", "Математический анализ в 1 файле:")
+        }
+        file_path, caption = file_map.get(query.data)
+        await send_cheatsheet(update, file_path, caption)
+    elif query.data == "feedback_yes":
+        await query.message.reply_text(
+            "Спасибо, что выбрали меня! Выберите одну из опций или отправьте изображение, ссылку или текст и я помогу ее решить.",
+            reply_markup=get_main_keyboard()
+        )
+    elif query.data == "feedback_no":
+        await query.delete_message()
+        if "last_photo" in context.user_data:
+            file_path = context.user_data["last_photo"]
+            sent_message = await query.message.reply_text(text="Думаю...")
+            try:
+                formula = await ai_processor.extract_formula_from_image(file_path, model="meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo")
+                await sent_message.edit_text(text="Решаю...")
+                result = await ai_processor.solve_problem(formula, model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo")
+                await sent_message.delete()
+                context.user_data["last_formula"] = formula
+                await handle_model_response(query, context, result)
+            except Exception as e:
+                logger.error(f"Error processing image again: {e}")
+                await query.message.reply_text(
+                    "Произошла ошибка при повторной обработке изображения. Попробуйте снова.",
+                    parse_mode=constants.ParseMode.MARKDOWN_V2,
+                    reply_markup=get_back_button(callback_data="back")
+                )
+        elif "last_text" in context.user_data:
+            user_text = context.user_data["last_text"]
+            sent_message = await query.message.reply_text(text="Думаю...")
+            try:
+                if ai_processor.is_remote_file(user_text):
+                    formula = await ai_processor.extract_formula_from_image(user_text, model="meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo")
+                else:
+                    formula = user_text
+                await sent_message.edit_text(text="Решаю...")
+                result = await ai_processor.solve_problem(formula, model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo")
+                await sent_message.delete()
+                await handle_model_response(query, context, result)
+            except Exception as e:
+                logger.error(f"Error processing text again: {e}")
+                await query.message.reply_text(
+                    "Произошла ошибка при повторной обработке вашего текста. Попробуйте снова.",
+                    reply_markup=get_back_button(callback_data="back")
+                )
+        else:
+            await query.message.reply_text(
+                "К сожалению, у нас нет данных для повторной обработки. Пожалуйста, отправьте изображение, ссылку или текст.",
+                reply_markup=get_back_button(callback_data="back")
+            )
     elif query.data == "back":
-        keyboard = [
-            [InlineKeyboardButton("Информация", callback_data="info"),
-             InlineKeyboardButton("Теоремы", callback_data="theorems")],
-            [InlineKeyboardButton("Шпаргалки", callback_data="cheatsheets"),
-             InlineKeyboardButton("Решить задачу", callback_data="solve")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(
-            text="Привет! Я бот-помощник по математике и другим предметам. Выберите одну из опций:",
-            reply_markup=reply_markup,
-        )
-    elif query.data in ["pi", "trigonometry", "derivative", "tablstep", "tablsquare",
-                        "square", "rectangle", "triangle", "rhomb", "trapezoid",
-                        "parallelepiped", "sphere", "parallelogram", "circle",
-                        "cone", "pyramid", "cube"]:
-        await handle_theorems(query, context)
+        current_text = query.message.text
 
-
-async def handle_theorems(query, context: ContextTypes.DEFAULT_TYPE):
-    theorems = {
-        "pi": pi,
-        "trigonometry": trigonometry,
-        "derivative": derivative,
-        "tablstep": tablstep,
-        "tablsquare": tablsquare,
-        "square": square,
-        "rectangle": rectangle,
-        "triangle": triangle,
-        "rhomb": rhomb,
-        "trapezoid": trapezoid,
-        "parallelepiped": parallelepiped,
-        "sphere": sphere,
-        "parallelogram": parallelogram,
-        "circle": circle,
-        "cone": cone,
-        "pyramid": pyramid,
-        "cube": cube,
-    }
-
-    if query.data in theorems:
-        await theorems[query.data](query, context)
+        if current_text.startswith("Число Пи") or current_text.startswith("Информация о"):
+            await query.edit_message_text(
+                text="Выберите одну из фигур для изучения информации:",
+                reply_markup=get_theorems_keyboard()
+            )
+        elif current_text.startswith("Выберите шпаргалку"):
+            await query.delete_message()
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="Привет! Я твой бот-помощник по математике. Я могу помочь тебе решить задачу. Выберите одну из опций или отправьте изображение, ссылку или текст и я помогу ее решить.",
+                reply_markup=get_main_keyboard()
+            )
+        else:
+            await query.edit_message_text(
+                text="Привет! Я твой бот-помощник по математике. Я могу помочь тебе решить задачу. Выберите одну из опций или отправьте изображение, ссылку или текст и я помогу ее решить.",
+                reply_markup=get_main_keyboard()
+            )
+    else:
+        await handle_theorems(update, context)
