@@ -1,14 +1,14 @@
 import base64
 import os
-from typing import Optional
+from typing import Optional, List, Dict
 import logging
 from together import AsyncTogether as Together
 
 
-class OCRProcessor:
+class AIProcessor:
     def __init__(self, api_key: Optional[str], logger: Optional[logging.Logger] = None):
         """
-        Инициализация OCRProcessor.
+        Инициализация AIProcessor.
         :param api_key: Ключ API Together.
         :param logger: Логгер для записи событий (по умолчанию используется root-логгер).
         """
@@ -17,63 +17,69 @@ class OCRProcessor:
         self.client = Together(api_key=self.api_key)
         self.logger.debug("Together client initialized")
 
-    async def ocr(self, file_path: str, model: str = "free") -> str:
+    async def extract_formula_from_image(self, file_path: str, model: str = "free") -> str:
         """
-        Основная функция для выполнения OCR.
+        Извлекает математическую формулу из изображения.
         :param file_path: Путь к файлу (локальный или URL).
         :param model: Название модели ("Llama-3.2-90B-Vision", "Llama-3.2-11B-Vision", "free").
-        :return: Markdown текст, полученный из изображения.
+        :return: Извлечённая формула в виде текста.
         """
-        vision_llm = (
-            "meta-llama/Llama-Vision-Free"
-            if model == "free"
-            else f"meta-llama/{model}-Instruct-Turbo"
-        )
-        self.logger.info(f"Using model: {vision_llm}")
-
-        final_markdown = await self._get_markdown(
-            together=self.client, vision_llm=vision_llm, file_path=file_path
-        )
-
-        return final_markdown
-
-    async def _get_markdown(self, together: Together, vision_llm: str, file_path: str) -> str:
-        """
-        Генерирует Markdown из изображения.
-        :param together: Клиент Together.
-        :param vision_llm: Название модели.
-        :param file_path: Путь к изображению.
-        :return: Markdown текст.
-        """
+        self.logger.info(f"Using model: {model}")
         system_prompt = (
-            "Extract the mathematical formula from the provided image and convert it into LaTeX format. "
-            "The result should be returned as a LaTeX-compatible string without any additional explanations.\n\n"
-            "For example:\n"
-            "Image: A quadratic formula.\n"
-            "Result: x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\n\n"
-            "Please ensure that mathematical notations are accurately represented.\n\n"
-            "Provide response in Russian language to explain the formula")
-
-        # Подготовка изображения
+            "Извлеките математическую формулу из предоставленного изображения и представьте её в упрощённом текстовом формате, "
+            "используя такие символы, как '+', '-', 'sqrt()', '/', '_()' и '^()' для квадратных корней, деления и степеней соответственно. "
+            "Не включайте никаких дополнительных объяснений или шагов.")
         final_image_url = (
             file_path
             if self.is_remote_file(file_path)
             else f"data:image/jpeg;base64,{self._encode_image(file_path)}"
         )
-        self.logger.debug(f"Final image URL: {final_image_url[:100]}...")
-
-        try:
-            output = await together.chat.completions.create(
-                model=vision_llm,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": system_prompt},
-                            {"type": "image_url", "image_url": {"url": final_image_url}},
-                        ],
-                    }
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": system_prompt},
+                    {"type": "image_url", "image_url": {"url": final_image_url}},
                 ],
+            }
+        ]
+
+        formula_text = await self._get_response(messages=messages, model=model)
+        self.logger.info(formula_text.strip())
+        return formula_text.strip()
+
+    async def solve_problem(self, formula_text: str, model: str = "free") -> str:
+        """
+        Решает математическую задачу, используя формулу.
+        :param formula_text: Формула, извлечённая из изображения.
+        :param model: Название модели.
+        :return: Шаги решения и окончательный ответ.
+        """
+        self.logger.info(f"Using model: {model}")
+        system_prompt = (
+            f"Пожалуйста, решите следующую математическую формулу: {formula_text}. "
+            "Сначала выведите формулу. Предоставьте решение в нескольких коротких шагах и конечный ответ. Не пиши очень много."
+        )
+        messages = [
+            {
+                "role": "user",
+                "content": system_prompt,
+            }
+        ]
+        solution = await self._get_response(messages=messages, model=model)
+        return solution.strip()
+
+    async def _get_response(self, messages: List[Dict], model: str) -> str:
+        """
+        Отправляет сообщения в API Together и возвращает ответ.
+        :param messages: Список сообщений для отправки.
+        :param model: Модель для использования.
+        :return: Ответ ИИ.
+        """
+        try:
+            output = await self.client.chat.completions.create(
+                model=model,
+                messages=messages,
             )
             self.logger.debug(f"API response: {output}")
             if not output.choices[0].message.content:
@@ -105,4 +111,5 @@ class OCRProcessor:
         :param file_path: Путь к файлу.
         :return: True, если файл удаленный (URL), иначе False.
         """
+        file_path = str(file_path)
         return file_path.startswith("http://") or file_path.startswith("https://")

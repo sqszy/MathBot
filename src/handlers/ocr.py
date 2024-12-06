@@ -1,86 +1,65 @@
 import logging
-import re
+from commands import handle_model_response
 from telegram import Update, constants
-from config.config import TOGETHER_API_KEY
 from telegram.ext import ContextTypes
-from core.ocr.service import OCRProcessor
-from telegram.helpers import escape_markdown
+from config.config import TOGETHER_API_KEY
+from core.ocr.service import AIProcessor
+from handlers.keyboards import get_back_button
+
 
 logger = logging.getLogger(__name__)
-ocr_processor = OCRProcessor(api_key=TOGETHER_API_KEY)
+ai_processor = AIProcessor(api_key=TOGETHER_API_KEY)
 
 
-async def image_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def ai_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Обработчик изображений и ссылок, отправленных пользователем.
+    Обработчик изображений, ссылок и текстовых сообщений, отправленных пользователем.
     """
     if update.message.photo:
         # Если сообщение содержит фотографию
         photo_file = await update.message.photo[-1].get_file()
         file_path = await photo_file.download_to_drive()
         logger.info(f"Downloaded photo to {file_path}")
-    elif update.message.text and ocr_processor.is_remote_file(update.message.text):
-        # Если сообщение содержит ссылку
-        file_path = update.message.text
-        logger.info(f"Received image URL: {file_path}")
+        context.user_data["last_photo"] = file_path
+        try:
+            sent_message = await update.message.reply_text(text="Думаю...")
+            formula = await ai_processor.extract_formula_from_image(file_path, model="meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo")
+            await sent_message.edit_text(text="Решаю...")
+            result = await ai_processor.solve_problem(formula, model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo")
+            await sent_message.delete()
+            await handle_model_response(update, context, result)
+        except Exception as e:
+            logger.error(f"Error processing image: {e}")
+            await update.message.reply_text(
+                "Произошла ошибка при обработке изображения. Попробуйте снова.",
+                parse_mode=constants.ParseMode.MARKDOWN_V2,
+                reply_markup=get_back_button(callback_data="back")
+            )
+    elif update.message.text:
+        # Если сообщение содержит текст
+        user_text = update.message.text.strip()
+        context.user_data["last_text"] = user_text
+        try:
+            sent_message = await update.message.reply_text(text="Думаю...")
+            if ai_processor.is_remote_file(user_text):
+                # Если это ссылка
+                logger.info(f"Received image URL: {user_text}")
+                formula = await ai_processor.extract_formula_from_image(user_text, model="meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo")
+            else:
+                # Если это просто текст
+                formula = user_text
+            await sent_message.edit_text(text="Решаю...")
+            result = await ai_processor.solve_problem(formula, model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo")
+            await sent_message.delete()
+            await handle_model_response(update, context, result)
+        except Exception as e:
+            logger.error(f"Error processing text or URL: {e}")
+            await update.message.reply_text(
+                "Произошла ошибка при обработке вашего текста. Попробуйте снова.",
+                reply_markup=get_back_button(callback_data="back")
+            )
     else:
-        # Если сообщение не содержит изображения или ссылки
         await update.message.reply_text(
-            "Пожалуйста, отправьте изображение или ссылку на изображение.",
-            parse_mode=constants.ParseMode.MARKDOWN_V2,
-        )
-        return
-
-    try:
-        # Выполняем OCR для извлечения текста
-        result = await ocr_processor.ocr(file_path, model="Llama-3.2-11B-Vision")
-
-        # Ищем LaTeX-формулу в тексте
-        formula_match = re.search(
-            r"(?<!\\)(\$.+?\$|\\$begin:math:display$.+?\\\\$end:math:display$|\\$begin:math:text$.*?\\\\$end:math:text$)",
-            result
-        )
-
-        if formula_match:
-            formula = formula_match.group(0).strip()
-
-            # Экранируем формулу (только обратные апострофы внутри формулы)
-            escaped_formula = formula.replace('`', '\\`')
-
-            # Экранируем тройные обратные апострофы
-            code_block = f"\\`\\`\\`\n{escaped_formula}\n\\`\\`\\`"
-
-            # Отправляем объяснение перед формулой
-            explanation_text = "Извлеченная формула из изображения представлена ниже:"
-            await update.message.reply_text(
-                escape_markdown(explanation_text, version=2),
-                parse_mode=constants.ParseMode.MARKDOWN_V2,
-            )
-
-            # Отправляем саму формулу в кодовом блоке
-            await update.message.reply_text(
-                code_block,
-                parse_mode=constants.ParseMode.MARKDOWN_V2,
-            )
-
-            # Дополнительное объяснение формулы
-            additional_info = (
-                "Данная формула используется для решения уравнений, включающих переменные и коэффициенты."
-            )
-            await update.message.reply_text(
-                escape_markdown(additional_info, version=2),
-                parse_mode=constants.ParseMode.MARKDOWN_V2,
-            )
-        else:
-            # Если формула не найдена, отправляем весь результат
-            await update.message.reply_text(
-                escape_markdown(result, version=2),
-                parse_mode=constants.ParseMode.MARKDOWN_V2,
-            )
-    except Exception as e:
-        # Обработка ошибок
-        logger.error(f"Error processing image: {e}")
-        await update.message.reply_text(
-            "Произошла ошибка при обработке изображения. Попробуйте снова.",
-            parse_mode=constants.ParseMode.MARKDOWN_V2,
+            "Пожалуйста, отправьте изображение, ссылку на изображение или текст.",
+            reply_markup=get_back_button(callback_data="back")
         )
