@@ -1,4 +1,5 @@
 import logging
+from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 from config.config import BOT_TOKEN
 from commands import start
@@ -24,8 +25,9 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND, ai_handler))
 
+    logger.info("Bot started. Press Ctrl+C to stop.")
     # Запуск бота
-    app.run_polling()
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
     logger.info("Bot stoped")
 
 

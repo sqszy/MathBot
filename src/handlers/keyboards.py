@@ -1,4 +1,6 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from database.database import async_session
+from database.crud import get_all_cheatsheets
 
 
 def get_main_keyboard() -> InlineKeyboardMarkup:
@@ -32,14 +34,24 @@ def get_theorems_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
-def get_cheatsheets_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Вся школьная программа", callback_data="cheatsheet_1"),
-         InlineKeyboardButton("Дискретная математика", callback_data="cheatsheet_2")],
-        [InlineKeyboardButton("Линейная алгебра", callback_data="cheatsheet_3"),
-         InlineKeyboardButton("Математический анализ", callback_data="cheatsheet_4")],
-        [InlineKeyboardButton("Назад", callback_data="back")]
-    ])
+async def get_cheatsheets_keyboard() -> InlineKeyboardMarkup:
+    async with async_session() as session:
+        cheatsheets = await get_all_cheatsheets(session)
+        keyboard = []
+        row = []
+        for cheatsheet in cheatsheets:
+            row.append(
+                InlineKeyboardButton(
+                    cheatsheet.name, callback_data=cheatsheet.callback_data
+                )
+            )
+            if len(row) == 2:
+                keyboard.append(row)
+                row = []
+        if row:
+            keyboard.append(row)
+        keyboard.append([InlineKeyboardButton("Назад", callback_data="back")])
+        return InlineKeyboardMarkup(keyboard)
 
 
 def get_back_button(callback_data: str) -> InlineKeyboardMarkup:

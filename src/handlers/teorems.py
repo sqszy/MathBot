@@ -1,11 +1,12 @@
 import logging
 from telegram import Update, constants
 from telegram.ext import ContextTypes
-from telegram.helpers import escape_markdown
-from handlers.keyboards import get_back_button, get_cheatsheets_keyboard, get_feedback_keyboard, get_main_keyboard, get_theorems_keyboard
+from handlers.keyboards import get_back_button, get_cheatsheets_keyboard, get_main_keyboard, get_theorems_keyboard
 from commands import handle_model_response, handle_theorems, send_cheatsheet
 from core.ocr.service import AIProcessor
 from config.config import TOGETHER_API_KEY
+from database.database import async_session
+from database.crud import get_all_cheatsheets
 
 logger = logging.getLogger(__name__)
 ai_processor = AIProcessor(api_key=TOGETHER_API_KEY)
@@ -27,17 +28,26 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
     elif query.data == "cheatsheets":
         await query.edit_message_text(
-            text="Выберите шпаргалку:", reply_markup=get_cheatsheets_keyboard()
+            text="Выберите шпаргалку:", reply_markup=await get_cheatsheets_keyboard()
         )
     elif query.data.startswith("cheatsheet_"):
-        file_map = {
-            "cheatsheet_1": ("src/files/allsch.pdf", "Вся школьная программа в 1 файле:"),
-            "cheatsheet_2": ("src/files/discret.pdf", "Дискретная математика в 1 файле:"),
-            "cheatsheet_3": ("src/files/linal.pdf", "Линейная алгебра в 1 файле:"),
-            "cheatsheet_4": ("src/files/mathan.pdf", "Математический анализ в 1 файле:")
-        }
-        file_path, caption = file_map.get(query.data)
-        await send_cheatsheet(update, file_path, caption)
+        try:
+            async with async_session() as session:
+                cheatsheets = await get_all_cheatsheets(session)
+                for cheatsheet in cheatsheets:
+                    if cheatsheet.callback_data == query.data:
+                        await send_cheatsheet(
+                            update=update,
+                            file_path=cheatsheet.file_path,
+                            caption=cheatsheet.caption,
+                        )
+                        return
+        except Exception as e:
+            logger.error(f"Error accessing database: {e}")
+            await query.message.reply_text(
+                "Произошла ошибка при доступе к базе данных. Попробуйте позже.",
+                reply_markup=get_back_button(callback_data="back"),
+            )
     elif query.data == "feedback_yes":
         await query.message.reply_text(
             "Спасибо, что выбрали меня! Выберите одну из опций или отправьте изображение, ссылку или текст и я помогу ее решить.",
