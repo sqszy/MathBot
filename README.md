@@ -38,7 +38,7 @@
    ```
 4. Запустите бота:
    ```bash
-   python src/app.py
+   python src/main.py
    ```
 
 ## Использование
